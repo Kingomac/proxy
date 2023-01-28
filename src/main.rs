@@ -18,9 +18,22 @@ fn handle_http(mut stream: TcpStream) {
     match HttpRequest::from_lines(&http_request) {
         Ok(parsed) => {
             println!("{}", parsed);
-            let proxy_request =
+            println!("Opening connection to {}:{}", parsed.host, parsed.port);
+            let mut proxy_request =
                 TcpStream::connect(format!("{}:{}", parsed.host, parsed.port)).unwrap();
-            proxy_request.write()
+            let response_to_client = "HTTP/1.1 200 OK\r\n\r\n".as_bytes();
+            loop {
+                stream.write_all(response_to_client).unwrap();
+                let mut data_from_client: Vec<u8> = Vec::new();
+                stream.read_to_end(&mut data_from_client).unwrap();
+                if data_from_client.len() == 0 {
+                    break;
+                }
+                println!(
+                    "The client sent encrypted data: {}",
+                    String::from_utf8_lossy(&data_from_client)
+                );
+            }
         }
         Err(err) => println!("Couldn't parse request to HTTP: {}", err),
     }

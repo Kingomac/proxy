@@ -38,11 +38,11 @@ pub struct HttpRequest {
     pub protocol_version: String,
     pub content_length: u32,
     pub connection: HttpConnection,
-    /*user_agent: String,
-    accept: String,
-    accept_language: String,
-    accept_encoding: Vec<HttpEncoding>,
-    cache_control: HttpCacheControlRequest,*/
+    pub path: String, /*user_agent: String,
+                      accept: String,
+                      accept_language: String,
+                      accept_encoding: Vec<HttpEncoding>,
+                      cache_control: HttpCacheControlRequest,*/
 }
 
 impl HttpRequest {
@@ -54,6 +54,7 @@ impl HttpRequest {
             protocol_version: String::new(),
             content_length: 0,
             connection: HttpConnection::Close,
+            path: "/".to_string(),
         }
     }
 
@@ -63,24 +64,15 @@ impl HttpRequest {
 
     pub fn to_http_string(&self) -> String {
         format!(
-            "{:?} {}:{} {}\r\nHost: {}\r\nConnection: {:?}\r\n\r\n",
-            self.request_type,
-            self.host,
-            self.port,
-            self.protocol_version,
-            self.host,
-            self.connection
+            "{:?} {} {}\r\nHost: {}\r\nConnection: {:?}\r\n\r\n",
+            self.request_type, self.path, self.protocol_version, self.host, self.connection
         )
     }
 }
 
 impl std::fmt::Display for HttpRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Request:\n\t{:?}\n\tVersion: {}\n\tHost: {}\n\tPort: {}\n\tContent-Length: {}\n\tConnection: {:?}\n",
-            self.request_type, self.protocol_version, self.host, self.port, self.content_length, self.connection
-        )
+        write!(f, "{}", self.to_http_string())
     }
 }
 
