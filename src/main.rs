@@ -5,7 +5,10 @@ use std::{
     thread,
 };
 
-use proxy::{parser::Parser, requests::http_request::HttpRequest};
+use proxy::{
+    parser::Parser,
+    requests::http_request::{HttpRequest, HttpRequestTypes},
+};
 
 fn handle_http(mut stream: TcpStream) {
     let buf_reader = BufReader::new(&mut stream);
@@ -36,6 +39,42 @@ fn handle_http(mut stream: TcpStream) {
             }
         }
         Err(err) => println!("Couldn't parse request to HTTP: {}", err),
+    }
+
+    fn handle_http2(mut stream: TcpStream) {
+        let stream_reader = BufReader::new(&mut stream);
+        let request_lines: Vec<_> = stream_reader
+            .lines()
+            .map(|result| result.unwrap())
+            .take_while(|line| !line.is_empty())
+            .collect();
+        let http_request =
+            HttpRequest::from_lines(&request_lines).expect("Error parsing request as HTTP");
+        match http_request.request_type {
+            HttpRequestTypes::CONNECT => {
+                // Connect and create tunnel
+                let mut proxy_connection =
+                    TcpStream::connect(format!("{}:{}", http_request.host, http_request.port))
+                        .expect("Error creating proxy connection");
+                let response_to_client = "HTTP/1.1 200 OK\r\n\r\n".as_bytes();
+                stream.write_all(&response_to_client).unwrap();
+                loop {
+                    let mut data_from_client = vec![0; 1500];
+                    stream.read(&mut data_from_client).unwrap();
+                    let will_accept = proxy_connection.write(&data_from_client).unwrap(); // 0 means will not accept more data
+                    if will_accept == 0 {
+                        break;
+                    }
+                    let mut data_from_server = vec![0; 1500];
+                    let will_accept = proxy_connection.read(&mut data_from_server).unwrap();
+                    if will_accept == 0 {
+                        break;
+                    }
+                    stream.write_all(&data_from_server).unwrap();
+                }
+            }
+            _ => {}
+        }
     }
 
     /*for line in &http_request {
