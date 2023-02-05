@@ -40,74 +40,52 @@ fn handle_http(mut stream: TcpStream) {
         }
         Err(err) => println!("Couldn't parse request to HTTP: {}", err),
     }
+}
 
-    fn handle_http2(mut stream: TcpStream) {
-        let stream_reader = BufReader::new(&mut stream);
-        let request_lines: Vec<_> = stream_reader
-            .lines()
-            .map(|result| result.unwrap())
-            .take_while(|line| !line.is_empty())
-            .collect();
-        let http_request =
-            HttpRequest::from_lines(&request_lines).expect("Error parsing request as HTTP");
-        match http_request.request_type {
-            HttpRequestTypes::CONNECT => {
-                // Connect and create tunnel
-                let mut proxy_connection =
-                    TcpStream::connect(format!("{}:{}", http_request.host, http_request.port))
-                        .expect("Error creating proxy connection");
-                let response_to_client = "HTTP/1.1 200 OK\r\n\r\n".as_bytes();
-                stream.write_all(&response_to_client).unwrap();
-                loop {
-                    let mut data_from_client = vec![0; 1500];
-                    stream.read(&mut data_from_client).unwrap();
-                    let will_accept = proxy_connection.write(&data_from_client).unwrap(); // 0 means will not accept more data
-                    if will_accept == 0 {
-                        break;
-                    }
-                    let mut data_from_server = vec![0; 1500];
-                    let will_accept = proxy_connection.read(&mut data_from_server).unwrap();
-                    if will_accept == 0 {
-                        break;
-                    }
-                    stream.write_all(&data_from_server).unwrap();
+fn handle_http2(mut stream: TcpStream) {
+    let stream_reader = BufReader::new(&mut stream);
+    let request_lines: Vec<_> = stream_reader
+        .lines()
+        .map(|result| result.unwrap())
+        .take_while(|line| !line.is_empty())
+        .collect();
+    let http_request =
+        HttpRequest::from_lines(&request_lines).expect("Error parsing request as HTTP");
+    match http_request.request_type {
+        HttpRequestTypes::CONNECT => {
+            // Connect and create tunnel
+            let mut proxy_connection =
+                TcpStream::connect(format!("{}:{}", http_request.host, http_request.port))
+                    .expect("Error creating proxy connection");
+            let response_to_client = "HTTP/1.1 200 OK\r\n\r\n".as_bytes();
+            stream.write_all(&response_to_client).unwrap();
+            loop {
+                let mut data_from_client = vec![0; 1500];
+                stream.read(&mut data_from_client).unwrap();
+                let will_accept = proxy_connection.write(&data_from_client).unwrap(); // 0 means will not accept more data
+                if will_accept == 0 {
+                    break;
                 }
+                let mut data_from_server = vec![0; 1500];
+                let will_accept = proxy_connection.read(&mut data_from_server).unwrap();
+                if will_accept == 0 {
+                    break;
+                }
+                stream.write_all(&data_from_server).unwrap();
             }
-            _ => {}
+        }
+        _ => {
+            let mut proxy_connection =
+                TcpStream::connect(format!("{}:{}", http_request.host, http_request.port))
+                    .expect("Error creating proxy connection");
+            proxy_connection
+                .write_all(http_request.to_http_string().as_bytes())
+                .unwrap();
+            let mut data_from_server: Vec<u8> = Vec::new();
+            proxy_connection.read_to_end(&mut data_from_server).unwrap();
+            stream.write_all(&data_from_server).unwrap();
         }
     }
-
-    /*for line in &http_request {
-        if line.starts_with("Host: ") {
-            let host = line.replace("Host: ", "");
-            println!("Read host: {}", host);
-            println!("Redirected request -> {}", http_request.join("\r\n"));
-            let mut connection = TcpStream::connect(&host).unwrap();
-            connection
-                .write_all(http_request.join("\r\n").as_bytes())
-                .expect("Error writing request to Server");
-            let mut response_buf: Vec<u8> = Vec::new();
-            connection
-                .read_to_end(&mut response_buf)
-                .expect("Error reading response");
-            println!(
-                "Response from {}: {}",
-                &host,
-                String::from_utf8_lossy(&response_buf)
-            );
-            stream
-                .write_all(&response_buf)
-                .expect("Error sending response");
-        }
-    }*/
-
-    /*let status_line = "HTTP/1.1 200 OK";
-    let contents = "<h1>hola</h1>";
-    let length = contents.len();
-
-    let response = format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}");
-
-    stream.write_all(response.as_bytes()).unwrap();*/
 }
 
 fn main() {
@@ -115,7 +93,7 @@ fn main() {
     println!("Listening on port 9090");
     for req in listener.incoming() {
         //thread::spawn(|| handle_http(req.unwrap()));
-        handle_http(req.unwrap())
+        handle_http2(req.unwrap())
     }
     /*
     thread::spawn(|| {
