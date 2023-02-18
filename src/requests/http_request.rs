@@ -6,10 +6,34 @@ pub enum HttpRequestTypes {
     PUT,
     DELETE,
 }
+
+impl std::fmt::Display for HttpRequestTypes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = match self {
+            &HttpRequestTypes::CONNECT => "CONNECT",
+            &HttpRequestTypes::DELETE => "DELETE",
+            &HttpRequestTypes::GET => "GET",
+            &HttpRequestTypes::POST => "POST",
+            &HttpRequestTypes::PUT => "PUT",
+        };
+        write!(f, "{}", text)
+    }
+}
+
 #[derive(Debug)]
 pub enum HttpConnection {
     KeepAlive,
     Close,
+}
+
+impl std::fmt::Display for HttpConnection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let r = match self {
+            &HttpConnection::Close => "Close",
+            &HttpConnection::KeepAlive => "KeepAlive",
+        };
+        write!(f, "{}", r)
+    }
 }
 
 pub enum HttpEncoding {
@@ -64,15 +88,21 @@ impl HttpRequest {
 
     pub fn to_http_string(&self) -> String {
         format!(
-            "{:?} {} {}\r\nHost: {}\r\nConnection: {:?}\r\n\r\n",
-            self.request_type, self.path, self.protocol_version, self.host, self.connection
+            "{:?} {} {}\r\nHost: {}\r\nConnection: {:?}\r\n\r\n\r\n",
+            self.request_type,
+            self.path,
+            self.protocol_version.to_uppercase(),
+            self.host,
+            self.connection
         )
     }
 }
 
 impl std::fmt::Display for HttpRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_http_string())
+        write!(f, "\trequest_type: {}\n\thost: {}\n\tport: {}\n\tprotocol_version: {}\n\tcontent_length: {}\n\tconnection: {}\n\tpath: {}\n",
+        &self.request_type, &self.host, &self.port, &self.protocol_version, &self.content_length, &self.connection, &self.path
+    )
     }
 }
 

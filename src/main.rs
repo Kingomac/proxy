@@ -75,15 +75,22 @@ fn handle_http2(mut stream: TcpStream) {
             }
         }
         _ => {
-            let mut proxy_connection =
-                TcpStream::connect(format!("{}:{}", http_request.host, http_request.port))
-                    .expect("Error creating proxy connection");
-            proxy_connection
+            println!("PARSED HTTP REQUEST:");
+            println!("TO STRING:");
+            println!("{}", http_request.to_http_string());
+            println!("EVERYTHING:");
+            println!("{}", http_request);
+            let mut stream =
+                TcpStream::connect(format!("{}:{}", &http_request.host, &http_request.port))
+                    .unwrap();
+            stream
                 .write_all(http_request.to_http_string().as_bytes())
                 .unwrap();
-            let mut data_from_server: Vec<u8> = Vec::new();
-            proxy_connection.read_to_end(&mut data_from_server).unwrap();
-            stream.write_all(&data_from_server).unwrap();
+            let mut result = String::new();
+            stream.read_to_string(&mut result).unwrap();
+            println!("DATA FROM SERVER!!:");
+            println!("{}", result);
+            stream.write_all(&result.as_bytes()).unwrap();
         }
     }
 }
@@ -93,19 +100,19 @@ fn main() {
     println!("Listening on port 9090");
     for req in listener.incoming() {
         //thread::spawn(|| handle_http(req.unwrap()));
-        handle_http2(req.unwrap())
+        thread::spawn(|| handle_http2(req.unwrap()));
     }
-    /*
-    thread::spawn(|| {
-        let host = "www.google.es";
+
+    /*thread::spawn(|| {
+        /*let host = "www.google.es";
         let port = 80;
         println!("Read host: {}", host);
         let mut connection = TcpStream::connect(format!("{}:{}", &host, &port)).unwrap();
         connection
             .write_all(
                 format!(
-                    "GET / HTTP/1.1\r\nHost: {}:{}\r\nConnection: close\r\n\r\n",
-                    host, port
+                    "GET / HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n",
+                    host
                 )
                 .as_bytes(),
             )
@@ -118,7 +125,27 @@ fn main() {
             "Response from {}: {}",
             &host,
             String::from_utf8_lossy(&response_buf)
-        );
+        );*/
+
+        let request = HttpRequest {
+            host: "google.es".to_string(),
+            request_type: HttpRequestTypes::GET,
+            port: 80,
+            protocol_version: "HTTP/1.1".to_string(),
+            content_length: 0,
+            connection: proxy::requests::http_request::HttpConnection::Close,
+            path: "/".to_string(),
+        };
+
+        let mut stream =
+            TcpStream::connect(format!("{}:{}", &request.host, &request.port)).unwrap();
+        stream
+            .write_all(request.to_http_string().as_bytes())
+            .unwrap();
+        let mut result = String::new();
+        stream.read_to_string(&mut result).unwrap();
+        println!("req: {}", request.to_http_string());
+        println!("xdd\n{}", result);
     })
     .join()
     .unwrap();*/

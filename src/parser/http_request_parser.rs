@@ -31,7 +31,10 @@ impl Parser<HttpRequest> for HttpRequest {
                         }
                     };
                 } else {
-                    result.port = 443;
+                    match &result.request_type {
+                        HttpRequestTypes::CONNECT => result.port = 443,
+                        _ => result.port = 80,
+                    }
                 }
             } else if ele.starts_with("connection:") {
                 let split: Vec<&str> = ele.split(":").collect();
@@ -47,7 +50,6 @@ impl Parser<HttpRequest> for HttpRequest {
                 || ele.starts_with("connect")
             {
                 let split: Vec<&str> = ele.split(" ").collect();
-                println!("🐷🐷🐷:{}", split.join(", "));
                 match split[0] {
                     "get" => result.request_type = HttpRequestTypes::GET,
                     "post" => result.request_type = HttpRequestTypes::POST,
