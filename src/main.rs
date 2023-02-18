@@ -80,14 +80,14 @@ fn handle_http2(mut stream: TcpStream) {
             println!("{}", http_request.to_http_string());
             println!("EVERYTHING:");
             println!("{}", http_request);
-            let mut stream =
+            let mut proxy_req =
                 TcpStream::connect(format!("{}:{}", &http_request.host, &http_request.port))
                     .unwrap();
-            stream
+            proxy_req
                 .write_all(http_request.to_http_string().as_bytes())
                 .unwrap();
             let mut result = String::new();
-            stream.read_to_string(&mut result).unwrap();
+            proxy_req.read_to_string(&mut result).unwrap();
             println!("DATA FROM SERVER!!:");
             println!("{}", result);
             stream.write_all(&result.as_bytes()).unwrap();
