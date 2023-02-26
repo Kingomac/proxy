@@ -1,46 +1,17 @@
 use std::{
     fmt::format,
+    fs,
     io::{prelude::*, BufReader, Read, Write},
     net::{SocketAddr, SocketAddrV4, TcpListener, TcpStream},
     thread,
 };
 
+use encoding_rs::WINDOWS_1252;
+
 use proxy::{
     parser::Parser,
     requests::http_request::{HttpRequest, HttpRequestTypes},
 };
-
-fn handle_http(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
-    let http_request: Vec<_> = buf_reader
-        .lines()
-        .map(|result| result.unwrap())
-        .take_while(|line| !line.is_empty())
-        .collect();
-    println!("Request: {:#?}", http_request);
-    match HttpRequest::from_lines(&http_request) {
-        Ok(parsed) => {
-            println!("{}", parsed);
-            println!("Opening connection to {}:{}", parsed.host, parsed.port);
-            let mut proxy_request =
-                TcpStream::connect(format!("{}:{}", parsed.host, parsed.port)).unwrap();
-            let response_to_client = "HTTP/1.1 200 OK\r\n\r\n".as_bytes();
-            loop {
-                stream.write_all(response_to_client).unwrap();
-                let mut data_from_client: Vec<u8> = Vec::new();
-                stream.read_to_end(&mut data_from_client).unwrap();
-                if data_from_client.len() == 0 {
-                    break;
-                }
-                println!(
-                    "The client sent encrypted data: {}",
-                    String::from_utf8_lossy(&data_from_client)
-                );
-            }
-        }
-        Err(err) => println!("Couldn't parse request to HTTP: {}", err),
-    }
-}
 
 fn handle_http2(mut stream: TcpStream) {
     let stream_reader = BufReader::new(&mut stream);
@@ -86,11 +57,18 @@ fn handle_http2(mut stream: TcpStream) {
             proxy_req
                 .write_all(http_request.to_http_string().as_bytes())
                 .unwrap();
-            let mut result = String::new();
-            proxy_req.read_to_string(&mut result).unwrap();
+            let mut result = Vec::new();
+            proxy_req.read_to_end(&mut result).unwrap();
             println!("DATA FROM SERVER!!:");
-            println!("{}", result);
-            stream.write_all(&result.as_bytes()).unwrap();
+            let mut file_output = fs::File::create("hola.txt").unwrap();
+            file_output.write(&result).unwrap();
+            let (cow, errs) = WINDOWS_1252.decode_with_bom_removal(&result);
+            if errs {
+                panic!("Hard errors decoding :(");
+            }
+            println!("{}", cow);
+            println!("*******");
+            stream.write_all(&result).unwrap();
         }
     }
 }
@@ -99,8 +77,8 @@ fn main() {
     let listener = TcpListener::bind("0.0.0.0:9090").unwrap();
     println!("Listening on port 9090");
     for req in listener.incoming() {
-        //thread::spawn(|| handle_http(req.unwrap()));
-        thread::spawn(|| handle_http2(req.unwrap()));
+        //thread::spawn(|| handle_http2(req.unwrap()));
+        handle_http2(req.unwrap());
     }
 
     /*thread::spawn(|| {

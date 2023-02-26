@@ -88,7 +88,7 @@ impl HttpRequest {
 
     pub fn to_http_string(&self) -> String {
         format!(
-            "{:?} {} {}\r\nHost: {}\r\nConnection: {:?}\r\n\r\n\r\n",
+            "{:?} {} {}\r\nHost: {}\r\nConnection: {:?}\r\n\r\n",
             self.request_type,
             self.path,
             self.protocol_version.to_uppercase(),
